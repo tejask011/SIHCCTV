@@ -3,7 +3,11 @@
 
 > Intelligent security surveillance: real-time YOLO object detection, virtual boundary drawing, and intrusion alerting.
 
----
+--------------------------------------------------
+# DEMO PHASE SCREENSHOT 
+<img width="1917" height="872" alt="image" src="https://github.com/user-attachments/assets/ec33b37d-5802-42f8-9927-ad0f51387ecb" />
+
+--------------------------------------------------------
 
 ## Architecture
 
