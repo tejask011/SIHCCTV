@@ -9,8 +9,7 @@ import DetectionSummary     from './components/DetectionSummary';
 import AlertPanel           from './components/AlertPanel';
 import DetectionLogPanel    from './components/DetectionLogPanel';
 
-const API    = 'http://localhost:8000';
-const WS_URL = 'ws://localhost:8000/ws';
+import { API, WS_URL } from './config';
 
 export default function App() {
   // ── Stream state ──────────────────────────────────────────────

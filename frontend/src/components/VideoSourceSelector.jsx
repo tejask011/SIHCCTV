@@ -2,8 +2,7 @@
 // Unified Source Control Bar — Obsidian Surveillance & Precision Video Telemetry.
 
 import { useState } from 'react';
-
-const API = 'http://localhost:8000';
+import { API } from '../config';
 
 export default function VideoSourceSelector({ isConnected, onConnected, onError, onStopped }) {
   const [mode, setMode]       = useState('webcam'); // 'webcam' | 'url'

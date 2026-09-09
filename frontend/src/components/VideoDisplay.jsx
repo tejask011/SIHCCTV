@@ -8,8 +8,7 @@
 //   - This guarantees the drawn polygon maps correctly to the real video resolution.
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-
-const STREAM_URL = 'http://localhost:8000/api/stream';
+import { STREAM_URL } from '../config';
 
 export default function VideoDisplay({
   isConnected,
