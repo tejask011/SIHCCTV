@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Production builds
+dist/
+frontend/dist/
+dist-ssr/
+
+# Python
+__pycache__/
+backend/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# YOLO model weights (auto-downloaded by Ultralytics)
+*.pt
+backend/*.pt
+backend/weights/
+
+# Logs and databases
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment and OS files
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
