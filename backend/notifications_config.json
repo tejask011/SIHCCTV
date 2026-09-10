@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "recipient_email": "kultej88@gmail.com",
+  "sender_email": "kultej88@gmail.com",
+  "app_password": "epivywfbtrjcdnpo",
+  "smtp_server": "smtp.gmail.com",
+  "smtp_port": 587,
+  "cooldown_sec": 45
+}

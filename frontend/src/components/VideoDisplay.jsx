@@ -8,7 +8,7 @@
 //   - This guarantees the drawn polygon maps correctly to the real video resolution.
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { STREAM_URL } from '../config';
+import { API, STREAM_URL } from '../config';
 
 export default function VideoDisplay({
   isConnected,
@@ -16,9 +16,38 @@ export default function VideoDisplay({
   boundaryPoints,       // [[normX, normY], ...]  — managed by parent (App)
   onAddPoint,
   streamError,
+  ocrData,
 }) {
   const imgRef    = useRef(null);
   const canvasRef = useRef(null);
+  const [scanning, setScanning] = useState(false);
+  const [manualScanResult, setManualScanResult] = useState(null);
+  const [dismissedOcrTs, setDismissedOcrTs] = useState(0);
+  const [scanNotice, setScanNotice] = useState('');
+
+  // Trigger immediate OCR scan on current live frame
+  const handleScanNow = async () => {
+    if (!isConnected || scanning) return;
+    setScanning(true);
+    setScanNotice('');
+    try {
+      const res = await fetch(`${API}/api/ocr/scan`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok && data.result?.detected) {
+        setManualScanResult(data.result);
+        setTimeout(() => setManualScanResult(null), 8000);
+      } else {
+        setScanNotice('No text or plate pattern recognized in current frame. Hold steady and try again.');
+        setTimeout(() => setScanNotice(''), 4000);
+      }
+    } catch (err) {
+      console.error('Scan error:', err);
+      setScanNotice('Scan request failed');
+      setTimeout(() => setScanNotice(''), 3000);
+    } finally {
+      setScanning(false);
+    }
+  };
 
   // Resize canvas to match the <img> rendered size
   const syncCanvas = useCallback(() => {
@@ -197,6 +226,77 @@ export default function VideoDisplay({
         }}
       />
 
+      {/* Active OCR / ANPR Floating Telemetry Overlay */}
+      {(() => {
+        if (!isConnected) return null;
+        const activeOcr = manualScanResult || (ocrData?.detected ? ocrData : null);
+
+        if (!activeOcr || !activeOcr.best_text) {
+          if (scanNotice) {
+            return (
+              <div className="hud-anpr-card" style={{ borderColor: 'rgba(234, 179, 8, 0.5)', pointerEvents: 'none' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: '#fde047' }}>
+                  ℹ {scanNotice}
+                </div>
+              </div>
+            );
+          }
+          return null;
+        }
+
+        // If user manually dismissed this OCR scan, keep it dismissed
+        const itemTs = activeOcr.timestamp || 0;
+        if (dismissedOcrTs && itemTs && itemTs <= dismissedOcrTs) {
+          return null;
+        }
+
+        // Auto-dismiss automatic detections after 3.5s; manual scans after 6s
+        const nowSec = Date.now() / 1000;
+        if (itemTs && (nowSec - itemTs > (manualScanResult ? 6.0 : 3.5))) {
+          return null;
+        }
+
+        return (
+          <div className="hud-anpr-card">
+            <div className="hud-anpr-tag-row">
+              <span className={`hud-anpr-badge ${activeOcr.is_plate ? 'plate' : 'text'}`}>
+                {activeOcr.is_plate ? '🚘 ANPR PLATE DETECTED' : '📄 OCR TEXT READ'}
+              </span>
+              <span className="hud-anpr-confidence">
+                {(activeOcr.confidence * 100).toFixed(0)}% CONF · {activeOcr.processing_ms}ms
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setManualScanResult(null);
+                  setDismissedOcrTs(activeOcr.timestamp || (Date.now() / 1000));
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  marginLeft: 'auto',
+                  pointerEvents: 'all'
+                }}
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="hud-anpr-value">
+              {activeOcr.is_plate ? activeOcr.plate_number : activeOcr.best_text}
+            </div>
+            {activeOcr.label && (
+              <div className="hud-anpr-meta">
+                Source: {activeOcr.label.toUpperCase()} · Category: {activeOcr.category}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Bottom HUD Controls */}
       <div className="hud-bottom-bar">
         <div className="hud-zoom-control">
@@ -214,6 +314,21 @@ export default function VideoDisplay({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            type="button"
+            className="hud-btn-action"
+            onClick={handleScanNow}
+            disabled={!isConnected || scanning}
+            title="Immediately scan live camera view for vehicle license plates or book text"
+            style={{
+              color: scanning ? 'var(--secondary)' : '#38bdf8',
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+              background: scanning ? 'rgba(56, 189, 248, 0.15)' : undefined
+            }}
+          >
+            <span>{scanning ? '⏳' : '📸'}</span>
+            <span>{scanning ? 'Scanning...' : 'Scan Plate / Text'}</span>
+          </button>
           <button
             type="button"
             className="hud-btn-action"
@@ -240,9 +355,9 @@ export default function VideoDisplay({
           right: 14,
           background: 'rgba(239, 68, 68, 0.9)',
           color: '#fff',
-          padding: '6px 12px',
+          padding: '8px 14px',
           borderRadius: 4,
-          fontSize: 11,
+          fontSize: 13,
           fontFamily: 'var(--font-mono)',
           zIndex: 20
         }}>

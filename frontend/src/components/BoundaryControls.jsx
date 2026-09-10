@@ -50,11 +50,11 @@ export default function BoundaryControls({
           <>
             <span style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: 11,
+              fontSize: 12.5,
               color: 'var(--primary)',
               display: 'flex',
               alignItems: 'center',
-              gap: 6
+              gap: 7
             }}>
               <span className="status-dot-led" style={{ color: 'var(--primary)' }} />
               CLICK VIEWPORT ({pointCount} pts, min 3)
@@ -73,7 +73,7 @@ export default function BoundaryControls({
             <button
               id="btn-finish-boundary"
               className="btn-action-connect"
-              style={{ padding: '5px 12px', fontSize: 11 }}
+              style={{ padding: '7px 16px', fontSize: 13 }}
               onClick={onFinishDraw}
               disabled={pointCount < 3}
               type="button"

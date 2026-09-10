@@ -109,6 +109,8 @@
     "phone charger":    "electronic",
     "table":            "furniture",
     "desk":             "furniture",
-    "plastic bottle":   "kitchen"
+    "plastic bottle":   "kitchen",
+    "license plate":    "vehicle",
+    "number plate":     "vehicle"
   }
 }

@@ -53,6 +53,10 @@ class BoundaryManager:
             self._points_norm = []
             self._points_px   = []
 
+    def get_points(self) -> list[list[float]]:
+        with self._lock:
+            return [list(p) for p in self._points_norm]
+
     def is_active(self) -> bool:
         with self._lock:
             return len(self._points_px) >= 3

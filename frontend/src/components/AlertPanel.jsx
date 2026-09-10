@@ -12,24 +12,24 @@ export default function AlertPanel({ alerts = [], activeIntrusion = false, dwell
           background: 'rgba(239, 68, 68, 0.15)',
           border: '1px solid var(--error)',
           borderRadius: 'var(--radius-xs)',
-          padding: '8px 12px',
+          padding: '10px 14px',
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
+          gap: 12,
           animation: 'pulse-banner 1.2s infinite'
         }}>
-          <span style={{ fontSize: 18 }}>🚨</span>
+          <span style={{ fontSize: 22 }}>🚨</span>
           <div>
             <div style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: 700,
               color: 'var(--error)',
               letterSpacing: '0.04em'
             }}>
               ACTIVE INTRUSION DETECTED
             </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: '#fca5a5' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: '#fca5a5' }}>
               Restricted boundary violated — continuous dwell threshold exceeded
             </div>
           </div>
@@ -42,10 +42,10 @@ export default function AlertPanel({ alerts = [], activeIntrusion = false, dwell
           background: 'var(--surface-container-low)',
           border: '1px solid var(--outline)',
           borderRadius: 'var(--radius-xs)',
-          padding: '8px 12px',
+          padding: '10px 14px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 4,
+          gap: 5,
         }}>
           {Object.entries(dwellTimes).map(([idx, secs]) => {
             const pct = Math.min((secs / DWELL_SEC) * 100, 100);
@@ -55,9 +55,9 @@ export default function AlertPanel({ alerts = [], activeIntrusion = false, dwell
                   display: 'flex',
                   justifyContent: 'space-between',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 10.5,
+                  fontSize: 12.5,
                   color: 'var(--primary)',
-                  marginBottom: 3
+                  marginBottom: 4
                 }}>
                   <span>⏱ Object in perimeter</span>
                   <span>{secs.toFixed(1)}s / {DWELL_SEC}s</span>
@@ -112,13 +112,25 @@ export default function AlertPanel({ alerts = [], activeIntrusion = false, dwell
             </div>
           ) : (
             alerts.map(alert => (
-              <div key={alert.id} className="terminal-log-row">
+              <div key={alert.id} className="terminal-log-row" style={{ flexWrap: 'wrap', gap: 6 }}>
                 <span className="terminal-log-time">[{alert.time}]</span>
-                <span className="terminal-log-tag alert">ALERT</span>
+                <span className={`terminal-log-tag ${alert.is_plate ? 'anpr' : 'alert'}`}>
+                  {alert.is_plate ? 'ANPR' : 'ALERT'}
+                </span>
                 <span className="terminal-log-label" style={{ color: '#fca5a5' }}>
                   {alert.message}
                 </span>
-                <span className="terminal-log-zone breach">BREACH</span>
+                {alert.is_plate && alert.plate_number && (
+                  <span className="anpr-plate-badge">
+                    {alert.plate_number}
+                  </span>
+                )}
+                {alert.ocr_text && !alert.is_plate && (
+                  <span className="ocr-text-badge">
+                    "{alert.ocr_text.slice(0, 20)}"
+                  </span>
+                )}
+                <span className="terminal-log-zone breach" style={{ marginLeft: 'auto' }}>BREACH</span>
               </div>
             ))
           )}

@@ -6,8 +6,10 @@ import VideoSourceSelector  from './components/VideoSourceSelector';
 import VideoDisplay         from './components/VideoDisplay';
 import BoundaryControls     from './components/BoundaryControls';
 import DetectionSummary     from './components/DetectionSummary';
+import TelemetryTerminal    from './components/TelemetryTerminal';
 import AlertPanel           from './components/AlertPanel';
 import DetectionLogPanel    from './components/DetectionLogPanel';
+import EmailAlertModal      from './components/EmailAlertModal';
 
 import { API, WS_URL } from './config';
 
@@ -23,7 +25,15 @@ export default function App() {
   const [detectionLog, setDetectionLog]       = useState([]);
   const [detectionMode, setDetectionMode]     = useState('all'); // 'all' or 'person_wearables'
   const [activeIntrusion, setActiveIntrusion] = useState(false);
+  const [cameraBlocked, setCameraBlocked]     = useState(false);
   const [dwellTimes, setDwellTimes]           = useState({});  // idx→seconds
+  const [ocrData, setOcrData]                 = useState(null);
+  const [emailStatus, setEmailStatus]         = useState({});
+  const [isEmailModalOpen, setEmailModalOpen] = useState(false);
+
+  // ── Timestamps to ignore stale in-flight messages after user clears logs ──
+  const alertsClearedAtRef = useRef(0);
+  const detectLogClearedAtRef = useRef(0);
 
   // ── Boundary drawing state ────────────────────────────────────
   const [isDrawing, setDrawing]           = useState(false);
@@ -50,11 +60,20 @@ export default function App() {
       try {
         const data = JSON.parse(event.data);
         if (data.summary)                       setSummary(data.summary);
-        if (data.alerts)                         setAlerts(data.alerts);
-        if (data.detection_log)                  setDetectionLog(data.detection_log);
+        if (data.alerts) {
+          const freshAlerts = data.alerts.filter(a => (a.id || 0) > alertsClearedAtRef.current);
+          setAlerts(freshAlerts);
+        }
+        if (data.detection_log) {
+          const freshLogs = data.detection_log.filter(l => (l.id || 0) > detectLogClearedAtRef.current);
+          setDetectionLog(freshLogs);
+        }
         if (data.detection_mode)                 setDetectionMode(data.detection_mode);
         if (data.active_intrusion !== undefined) setActiveIntrusion(data.active_intrusion);
+        if (data.camera_blocked !== undefined)   setCameraBlocked(data.camera_blocked);
         if (data.dwell_times)                    setDwellTimes(data.dwell_times);
+        if (data.ocr)                            setOcrData(data.ocr);
+        if (data.email_status)                   setEmailStatus(data.email_status);
         if (data.error)                          setStreamError(data.error);
       } catch { /* ignore parse errors */ }
     };
@@ -85,8 +104,13 @@ export default function App() {
     setBoundaryPoints([]);
     setDrawing(false);
     setAlerts([]);
+    setDetectionLog([]);
     setActiveIntrusion(false);
+    setCameraBlocked(false);
     setDwellTimes({});
+    const now = Date.now();
+    alertsClearedAtRef.current = now;
+    detectLogClearedAtRef.current = now;
     // Short delay then trigger WS reconnect to start receiving data
     setTimeout(connectWS, 500);
   }
@@ -100,7 +124,12 @@ export default function App() {
     setDetectionLog([]);
     setSummary({ HUMAN: 0, ANIMAL: 0, VEHICLE: 0, OBJECT: 0 });
     setActiveIntrusion(false);
+    setCameraBlocked(false);
     setDwellTimes({});
+    setOcrData(null);
+    const now = Date.now();
+    alertsClearedAtRef.current = now;
+    detectLogClearedAtRef.current = now;
   }
 
   // ── Boundary actions ───────────────────────────────────────────
@@ -132,14 +161,47 @@ export default function App() {
     await fetch(`${API}/api/boundary`, { method: 'DELETE' }).catch(() => {});
   }
 
+  // ── Log Clearing Actions (Both WS Instant Push & HTTP REST) ──
+  async function handleClearAll() {
+    const now = Date.now();
+    alertsClearedAtRef.current = now;
+    detectLogClearedAtRef.current = now;
+    setAlerts([]);
+    setDetectionLog([]);
+    setActiveIntrusion(false);
+
+    // Send instant clear command through WebSocket connection
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ action: 'clear_all' }));
+      } catch { /* ignore */ }
+    }
+    // Also call HTTP backend endpoint to guarantee memory purge
+    await fetch(`${API}/api/logs`, { method: 'DELETE' }).catch(() => {});
+  }
+
   async function handleClearAlerts() {
+    alertsClearedAtRef.current = Date.now();
     setAlerts([]);
     setActiveIntrusion(false);
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ action: 'clear_alerts' }));
+      } catch { /* ignore */ }
+    }
     await fetch(`${API}/api/alerts`, { method: 'DELETE' }).catch(() => {});
   }
 
   async function handleClearDetectionLog() {
+    detectLogClearedAtRef.current = Date.now();
     setDetectionLog([]);
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ action: 'clear_detection_log' }));
+      } catch { /* ignore */ }
+    }
     await fetch(`${API}/api/detection-log`, { method: 'DELETE' }).catch(() => {});
   }
 
@@ -179,6 +241,35 @@ export default function App() {
         </div>
 
         <div className="header-telemetry-right">
+          {/* Email Dispatch Alert Setup Pill */}
+          <button
+            id="btn-email-dispatch"
+            type="button"
+            onClick={() => setEmailModalOpen(true)}
+            className="telemetry-pill"
+            style={{
+              cursor: 'pointer',
+              background: emailStatus?.enabled ? 'rgba(16, 185, 129, 0.15)' : 'var(--surface-container-low)',
+              border: `1px solid ${emailStatus?.enabled ? 'var(--secondary)' : 'var(--outline)'}`,
+              color: emailStatus?.enabled ? 'var(--secondary)' : 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              transition: 'all 0.2s',
+            }}
+            title="Configure automatic perimeter breach email dispatch with photo snapshot"
+          >
+            <span>📧</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700 }}>
+              {emailStatus?.enabled ? 'EMAIL ALERTS: ON' : 'EMAIL ALERTS: OFF'}
+            </span>
+            {emailStatus?.enabled && emailStatus?.recipient_email && (
+              <span style={{ fontSize: 11, opacity: 0.85, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                ({emailStatus.recipient_email})
+              </span>
+            )}
+          </button>
+
           {/* Zone status pill */}
           <div className="telemetry-pill">
             <span
@@ -190,7 +281,7 @@ export default function App() {
 
           {/* Real-time digital clock */}
           <div className="telemetry-pill">
-            <span style={{ fontSize: 12 }}>🕒</span>
+            <span style={{ fontSize: 14 }}>🕒</span>
             <span>{clock}</span>
           </div>
 
@@ -215,13 +306,13 @@ export default function App() {
         {streamError && (
           <div style={{
             marginBottom: 12,
-            padding: '8px 12px',
+            padding: '10px 14px',
             background: 'rgba(239, 68, 68, 0.15)',
             border: '1px solid var(--error)',
             borderRadius: 'var(--radius-xs)',
             color: '#fca5a5',
             fontFamily: 'var(--font-mono)',
-            fontSize: 11.5,
+            fontSize: 13,
           }}>
             ⚠ {streamError}
           </div>
@@ -235,7 +326,7 @@ export default function App() {
             <div className="video-bar-header">
               <div className="panel-header-title">
                 <span className="status-dot-led" style={{ color: 'var(--secondary)' }} />
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12, letterSpacing: '0.04em' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13.5, letterSpacing: '0.04em' }}>
                   LIVE VIDEO STREAM
                 </span>
                 <span className="badge-tag-sm">Viewport 01 · CH_A</span>
@@ -271,6 +362,7 @@ export default function App() {
               boundaryPoints={boundaryPoints}
               onAddPoint={handleAddPoint}
               streamError={streamError}
+              ocrData={ocrData}
             />
 
             {/* Boundary Toolbar */}
@@ -293,22 +385,27 @@ export default function App() {
               activeIntrusion={activeIntrusion}
             />
 
-            {/* Incident Alert Stream Terminal */}
-            <AlertPanel
+            {/* Unified Tabbed Telemetry Terminal (Alerts, Detections & All Logs) */}
+            <TelemetryTerminal
               alerts={alerts}
+              detectionLog={detectionLog}
               activeIntrusion={activeIntrusion}
+              cameraBlocked={cameraBlocked}
               dwellTimes={dwellTimes}
-              onClear={handleClearAlerts}
-            />
-
-            {/* Detection Log Stream Terminal */}
-            <DetectionLogPanel
-              log={detectionLog}
-              onClear={handleClearDetectionLog}
+              onClearAlerts={handleClearAlerts}
+              onClearDetectionLog={handleClearDetectionLog}
+              onClearAll={handleClearAll}
             />
           </aside>
         </div>
       </main>
+
+      {/* Email Alert Configuration Modal */}
+      <EmailAlertModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        emailStatus={emailStatus}
+      />
     </div>
   );
 }

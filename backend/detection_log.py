@@ -29,10 +29,12 @@ MAX_ENTRIES  = 200      # rolling window size
 COOLDOWN_SEC = 8.0      # minimum seconds between repeated log entries for same label
 
 _EMOJI = {
-    "HUMAN":   "🧍",
-    "ANIMAL":  "🐾",
-    "VEHICLE": "🚗",
-    "OBJECT":  "📦",
+    "HUMAN":      "🧍",
+    "ANIMAL":     "🐾",
+    "VEHICLE":    "🚗",
+    "OBJECT":     "📦",
+    "NO. PLATES": "🚘",
+    "TAMPER":     "🚫",
 }
 
 
@@ -107,4 +109,21 @@ class DetectionLog:
             # Mark currently tracked labels as seen now so they don't immediately re-spam
             for lbl in list(self._last_seen.keys()):
                 self._last_seen[lbl] = now
+
+    def add_custom_entry(self, label: str, category: str = "TAMPER", confidence: float = 1.0, intruding: bool = True, emoji: str = "🚫") -> dict:
+        now = time.time()
+        entry = {
+            "id":         int(now * 1000),
+            "time":       datetime.now().strftime("%H:%M:%S"),
+            "label":      label,
+            "category":   category,
+            "confidence": confidence,
+            "intruding":  intruding,
+            "emoji":      emoji,
+        }
+        with self._lock:
+            self._entries.append(entry)
+            if len(self._entries) > MAX_ENTRIES:
+                self._entries = self._entries[-MAX_ENTRIES:]
+        return entry
 

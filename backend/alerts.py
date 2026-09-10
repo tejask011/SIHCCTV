@@ -101,6 +101,22 @@ class AlertManager:
             self._alerts.clear()
             self._state.clear()
 
+    def add_custom_alert(self, title: str, message: str, category: str = "TAMPER", emoji: str = "🚨") -> dict:
+        now = time.time()
+        alert = {
+            "id":       int(now * 1000),
+            "emoji":    emoji,
+            "title":    title,
+            "message":  message,
+            "category": category,
+            "time":     datetime.now().strftime("%H:%M:%S"),
+        }
+        with self._lock:
+            self._alerts.append(alert)
+            if len(self._alerts) > MAX_ALERTS:
+                self._alerts = self._alerts[-MAX_ALERTS:]
+        return alert
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -125,11 +141,30 @@ class AlertManager:
         emoji = emoji_map.get(det["category"], "⚠️")
         label = det["label"].capitalize()
 
+        ocr_text = det.get("ocr_text", "")
+        is_plate = det.get("is_plate", False)
+        plate_number = det.get("plate_number", "")
+
+        if is_plate and plate_number:
+            msg = f"{label} [Plate: {plate_number}] in restricted zone for {dwell:.1f}s"
+            emoji = "🚔"
+        elif ocr_text:
+            msg = f"{label} (\"{ocr_text[:24]}\") in restricted zone for {dwell:.1f}s"
+        else:
+            msg = f"{label} in restricted zone for {dwell:.1f}s"
+
         return {
-            "id":       int(time.time() * 1000),
-            "emoji":    emoji,
-            "title":    "INTRUSION ALERT",
-            "message":  f"{label} in restricted zone for {dwell:.1f}s",
-            "category": det["category"],
-            "time":     datetime.now().strftime("%H:%M:%S"),
+            "id":           int(time.time() * 1000),
+            "emoji":        emoji,
+            "title":        "ANPR / INTRUSION ALERT" if is_plate else "INTRUSION ALERT",
+            "message":      msg,
+            "category":     det["category"],
+            "label":        det["label"],
+            "confidence":   det.get("confidence", 0.9),
+            "bbox":         det.get("bbox"),
+            "ref_point":    det.get("ref_point"),
+            "ocr_text":     ocr_text,
+            "is_plate":     is_plate,
+            "plate_number": plate_number,
+            "time":         datetime.now().strftime("%H:%M:%S"),
         }

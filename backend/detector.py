@@ -36,6 +36,7 @@ except ImportError:
 SURVEILLANCE_AND_OBJECT_CLASSES = [
     # ── Surveillance & Perimeter Security ──
     "person", "car", "motorcycle", "bicycle", "dog", "cat",
+    "license plate", "number plate",
 
     # ── Wearables & Personal Accessories ──
     "watch", "smart watch", "headphones", "glasses", "gloves",
@@ -121,7 +122,7 @@ INTRUSION_COLOR = (0, 0, 255)   # red — overrides when inside boundary
 # ---------------------------------------------------------------------------
 
 class Detector:
-    def __init__(self, model_name: str = "yolov8s-worldv2.pt", conf_threshold: float = 0.35):
+    def __init__(self, model_name: str = "yolov8s-worldv2.pt", conf_threshold: float = 0.25):
         self.model = None
         self.is_world_model = False
         self.mode = "all"   # "all" or "person_wearables"
@@ -246,5 +247,31 @@ class Detector:
             # Ground-contact dot
             cx, cy = det["ref_point"]
             cv2.circle(frame, (cx, cy), 4, color, -1)
+
+            # OCR / Number Plate Badge
+            if det.get("is_plate") and det.get("plate_number"):
+                plate_str = f"PLATE: {det['plate_number']}"
+                (pw, ph), _ = cv2.getTextSize(plate_str, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 2)
+                # Yellow plate background with black text (Indian license plate style)
+                py1 = min(y2 + 4, frame.shape[0] - ph - 8)
+                cv2.rectangle(frame, (x1, py1), (x1 + pw + 10, py1 + ph + 8), (0, 215, 255), -1)
+                cv2.rectangle(frame, (x1, py1), (x1 + pw + 10, py1 + ph + 8), (0, 0, 0), 2)
+                cv2.putText(
+                    frame, plate_str,
+                    (x1 + 5, py1 + ph + 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.65,
+                    (0, 0, 0), 2, cv2.LINE_AA
+                )
+            elif det.get("ocr_text"):
+                ocr_str = f"TXT: {det['ocr_text'][:20]}"
+                (tw2, th2), _ = cv2.getTextSize(ocr_str, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                py1 = min(y2 + 4, frame.shape[0] - th2 - 6)
+                cv2.rectangle(frame, (x1, py1), (x1 + tw2 + 8, py1 + th2 + 6), (230, 160, 20), -1)
+                cv2.putText(
+                    frame, ocr_str,
+                    (x1 + 4, py1 + th2 + 1),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                    (255, 255, 255), 1, cv2.LINE_AA
+                )
 
         return frame

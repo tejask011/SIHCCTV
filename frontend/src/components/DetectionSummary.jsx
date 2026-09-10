@@ -4,10 +4,11 @@
 import { useState } from 'react';
 
 const GROUP_META = {
-  HUMAN:   { icon: '🧍', color: 'var(--human)'   },
-  ANIMAL:  { icon: '🐾', color: 'var(--animal)'  },
-  VEHICLE: { icon: '🚗', color: 'var(--vehicle)' },
-  OBJECT:  { icon: '📦', color: 'var(--object)'  },
+  HUMAN:        { icon: '🧍', color: 'var(--human)'   },
+  ANIMAL:       { icon: '🐾', color: 'var(--animal)'  },
+  VEHICLE:      { icon: '🚗', color: 'var(--vehicle)' },
+  OBJECT:       { icon: '📦', color: 'var(--object)'  },
+  'NO. PLATES': { icon: '🚘', color: '#38bdf8'        },
 };
 
 const DEFAULT_META = { icon: '🔍', color: 'var(--on-surface-variant)' };
@@ -122,7 +123,7 @@ export default function DetectionSummary({ summary = {}, activeIntrusion = false
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '8px 12px',
+                      padding: '10px 14px',
                       background: 'transparent',
                       border: 'none',
                       color: 'var(--on-surface)',
@@ -131,8 +132,8 @@ export default function DetectionSummary({ summary = {}, activeIntrusion = false
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>{meta.icon}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', color: meta.color }}>
+                      <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                      <span style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: '0.04em', color: meta.color }}>
                         {category}
                       </span>
                     </div>
@@ -140,26 +141,26 @@ export default function DetectionSummary({ summary = {}, activeIntrusion = false
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
                         fontFamily: 'var(--font-mono)',
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: 700,
                         color: meta.color,
                         background: 'rgba(255, 255, 255, 0.05)',
-                        padding: '1px 7px',
+                        padding: '2px 8px',
                         borderRadius: 3,
                       }}>
                         {groupSum}
                       </span>
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{isOpen ? '▲' : '▼'}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{isOpen ? '▲' : '▼'}</span>
                     </div>
                   </button>
 
                   {isOpen && (
                     <div style={{
-                      padding: '6px 12px 8px',
+                      padding: '8px 14px 10px',
                       borderTop: '1px solid var(--outline)',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 3,
+                      gap: 4,
                     }}>
                       {subItems.map(([label, count]) => (
                         <div
@@ -168,7 +169,7 @@ export default function DetectionSummary({ summary = {}, activeIntrusion = false
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            fontSize: 12,
+                            fontSize: 13.5,
                             fontFamily: 'var(--font-body)',
                             color: 'var(--on-surface-variant)',
                           }}
@@ -176,7 +177,7 @@ export default function DetectionSummary({ summary = {}, activeIntrusion = false
                           <span style={{ textTransform: 'capitalize' }}>└ {label}</span>
                           <span style={{
                             fontFamily: 'var(--font-mono)',
-                            fontSize: 11,
+                            fontSize: 12.5,
                             fontWeight: 600,
                             color: 'var(--on-surface)',
                           }}>
